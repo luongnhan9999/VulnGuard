@@ -1,0 +1,20 @@
+=== DEFI VAULT SECURITY BOUNTY POLICY ===
+
+1. SCOPE & IN-SCOPE ASSETS
+- Smart contract vault logic at 0x1234567890abcdef1234567890abcdef12345678
+- Reentrancy vulnerabilities, arithmetic overflows/underflows, improper access control, precision loss.
+
+2. SEVERITY TIERS
+- CRITICAL: Direct theft of user funds, permanent freezing of assets, flashloan exploit leading to pool drain.
+- MEDIUM: Partial loss of yield, temporary state manipulation, unhandled edge cases causing localized failure.
+
+3. OUT-OF-SCOPE & INVALID SUBMISSIONS
+- Theoretical attacks without practical proof or executable exploit steps.
+- Social engineering, phishing, physical security, volumetric DDoS attacks.
+- Third-party dependency issues outside our smart contract core logic.
+
+4. REWARD STRUCTURE & ANTI-SPAM
+- Critical Severity: 100% of available program bounty pool + 100% bond refund.
+- Medium Severity: 50% of available program bounty pool + 100% bond refund.
+- Invalid Submission: Bond refunded, 0 bounty payout.
+- Spam / Malicious Submission: Bond slashed and transferred to program owner.

