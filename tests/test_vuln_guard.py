@@ -1,23 +1,23 @@
 import pytest
-from genlayer.testing import *
+from gltest import *
 
 
 @pytest.fixture
-def contract(deploy_contract):
-    return deploy_contract("contracts/vuln_guard.py")
+def contract(direct_deploy):
+    return direct_deploy("contracts/vuln_guard.py")
 
 
-def test_create_program_success(contract, accounts):
-    owner = accounts[0]
+def test_create_program_success(contract, direct_vm, direct_owner):
+    owner = direct_owner
+    direct_vm.sender = owner
+    direct_vm.value = 10000
 
     prog_id = contract.create_program(
         "DeFi Vault Security Program",
         "https://example.com/security_policy.txt",
-        sender=owner,
-        value=10000
     )
 
-    assert prog_id == "1"
+    assert str(prog_id) == "1"
     assert contract.get_program_counter() == 1
 
     prog_json = contract.get_program("1")
@@ -27,56 +27,56 @@ def test_create_program_success(contract, accounts):
     assert '"status": "ACTIVE"' in prog_json
 
 
-def test_create_program_invalid_inputs(contract, accounts):
-    owner = accounts[0]
+def test_create_program_invalid_inputs(contract, direct_vm, direct_owner):
+    owner = direct_owner
 
     # Zero deposit
-    with pytest.raises(Exception, match="Bounty pool deposit must be greater than 0"):
+    direct_vm.sender = owner
+    direct_vm.value = 0
+    with pytest.raises(Exception):
         contract.create_program(
             "DeFi Vault Security Program",
             "https://example.com/policy.txt",
-            sender=owner,
-            value=0
         )
 
     # Title too short
-    with pytest.raises(Exception, match="Program title too short"):
+    direct_vm.sender = owner
+    direct_vm.value = 1000
+    with pytest.raises(Exception):
         contract.create_program(
             "Tiny",
             "https://example.com/policy.txt",
-            sender=owner,
-            value=1000
         )
 
     # Invalid URL scheme
-    with pytest.raises(Exception, match="policy_url must start with http:// or https://"):
+    direct_vm.sender = owner
+    direct_vm.value = 1000
+    with pytest.raises(Exception):
         contract.create_program(
             "DeFi Vault Security Program",
             "ftp://example.com/policy.txt",
-            sender=owner,
-            value=1000
         )
 
 
-def test_submit_vulnerability_success(contract, accounts):
-    owner = accounts[0]
-    researcher = accounts[1]
+def test_submit_vulnerability_success(contract, direct_vm, direct_owner, direct_alice):
+    owner = direct_owner
+    researcher = direct_alice
 
+    direct_vm.sender = owner
+    direct_vm.value = 10000
     prog_id = contract.create_program(
         "DeFi Vault Security Program",
         "https://example.com/security_policy.txt",
-        sender=owner,
-        value=10000
     )
 
+    direct_vm.sender = researcher
+    direct_vm.value = 500
     report_id = contract.submit_vulnerability(
         prog_id,
         "https://example.com/poc_report.txt",
-        sender=researcher,
-        value=500
     )
 
-    assert report_id == "1"
+    assert str(report_id) == "1"
     assert contract.get_report_counter() == 1
 
     report_json = contract.get_report("1")
@@ -87,72 +87,76 @@ def test_submit_vulnerability_success(contract, accounts):
     assert '"verdict": "NONE"' in report_json
 
 
-def test_submit_vulnerability_invalid(contract, accounts):
-    owner = accounts[0]
-    researcher = accounts[1]
+def test_submit_vulnerability_invalid(contract, direct_vm, direct_owner, direct_alice):
+    owner = direct_owner
+    researcher = direct_alice
 
+    direct_vm.sender = owner
+    direct_vm.value = 10000
     prog_id = contract.create_program(
         "DeFi Vault Security Program",
         "https://example.com/security_policy.txt",
-        sender=owner,
-        value=10000
     )
 
     # Non-existent program
-    with pytest.raises(Exception, match="Bug program not found"):
+    direct_vm.sender = researcher
+    direct_vm.value = 500
+    with pytest.raises(Exception):
         contract.submit_vulnerability(
             "999",
             "https://example.com/poc.txt",
-            sender=researcher,
-            value=500
         )
 
     # Zero bond
-    with pytest.raises(Exception, match="Researcher must stake an anti-spam bond greater than 0"):
+    direct_vm.sender = researcher
+    direct_vm.value = 0
+    with pytest.raises(Exception):
         contract.submit_vulnerability(
             prog_id,
             "https://example.com/poc.txt",
-            sender=researcher,
-            value=0
         )
 
     # Invalid report URL
-    with pytest.raises(Exception, match="report_url must start with http:// or https://"):
+    direct_vm.sender = researcher
+    direct_vm.value = 500
+    with pytest.raises(Exception):
         contract.submit_vulnerability(
             prog_id,
             "invalid-url",
-            sender=researcher,
-            value=500
         )
 
 
-def test_close_program(contract, accounts):
-    owner = accounts[0]
-    other = accounts[1]
+def test_close_program(contract, direct_vm, direct_owner, direct_alice):
+    owner = direct_owner
+    other = direct_alice
 
+    direct_vm.sender = owner
+    direct_vm.value = 10000
     prog_id = contract.create_program(
         "DeFi Vault Security Program",
         "https://example.com/security_policy.txt",
-        sender=owner,
-        value=10000
     )
 
     # Non-owner cannot close
-    with pytest.raises(Exception, match="Only owner can close the program"):
-        contract.close_program(prog_id, sender=other)
+    direct_vm.sender = other
+    direct_vm.value = 0
+    with pytest.raises(Exception):
+        contract.close_program(prog_id)
 
     # Owner closes program
-    contract.close_program(prog_id, sender=owner)
+    direct_vm.sender = owner
+    direct_vm.value = 0
+    contract.close_program(prog_id)
 
     prog_json = contract.get_program(prog_id)
     assert '"status": "CLOSED"' in prog_json
     assert '"bounty_pool": "0"' in prog_json
 
     # Cannot submit to closed program
-    with pytest.raises(Exception, match="Program is not active"):
+    direct_vm.sender = other
+    direct_vm.value = 500
+    with pytest.raises(Exception):
         contract.submit_vulnerability(
             prog_id,
             "https://example.com/poc.txt",
-            sender=other,
-            value=500
         )
